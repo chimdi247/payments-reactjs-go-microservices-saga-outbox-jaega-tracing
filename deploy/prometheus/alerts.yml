@@ -1,0 +1,83 @@
+# Alert rules. Every one names what to look at first in its annotations.
+groups:
+  - name: payments-slo
+    rules:
+      - alert: ServiceDown
+        expr: up{job="payments"} == 0
+        for: 1m
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $labels.service }} is not being scraped"
+          runbook: "Check `docker compose ps` / pod status, then its logs."
+
+      - alert: HighErrorRate
+        expr: |
+          sum by (service) (rate(http_request_duration_seconds_count{code=~"5.."}[5m]))
+            / sum by (service) (rate(http_request_duration_seconds_count[5m])) > 0.02
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $labels.service }}: more than 2% of requests fail with 5xx"
+          runbook: "Open Jaeger, filter service + error=true, newest first."
+
+  - name: payments-money
+    rules:
+      - alert: TransferStuck
+        expr: transfers_inflight_oldest_seconds > 300
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: "A transfer has been unfinished for over 5 minutes (state {{ $labels.state }})"
+          runbook: "Funds may be held. Check transfer_step_retries_total and the wallet service."
+
+      - alert: TransferStepRetriesHigh
+        expr: sum by (step) (increase(transfer_step_retries_total[10m])) > 20
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Saga step {{ $labels.step }} keeps failing"
+
+      - alert: LedgerDiscrepancy
+        expr: increase(job_runs_total{status="failed"}[30m]) > 0
+        labels: {severity: page}
+        annotations:
+          summary: "A scheduled job failed (reconciliation?): the ledger may be off"
+          runbook: "Run the reconcile endpoint and read the discrepancies."
+
+  - name: payments-async
+    rules:
+      - alert: DeadLettersAppeared
+        expr: increase(notification_dead_letters_total[10m]) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "Notifications were dead-lettered"
+
+      - alert: WebhookFanOutDropping
+        expr: increase(webhook_fanout_dropped_total[10m]) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "Webhook fan-out is dropping events ({{ $labels.reason }})"
+
+      - alert: WebhookDeliveriesFailing
+        expr: |
+          sum(increase(webhook_attempts_total{state="failed"}[30m])) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "Webhook deliveries ran out of retries"
+
+  - name: payments-security
+    rules:
+      - alert: RateLimiterDegraded
+        expr: increase(gateway_ratelimit_errors_total[5m]) > 0
+        for: 1m
+        labels: {severity: page}
+        annotations:
+          summary: "Gateway can't reach Redis: {{ $labels.outcome }} requests"
+          runbook: "outcome=rejected means login and money routes are failing closed."
+
+      - alert: LoginRateLimitSpike
+        expr: sum(rate(http_request_duration_seconds_count{service="gateway",code="429"}[5m])) > 1
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Sustained 429s at the gateway: credential stuffing or a misbehaving client"

@@ -1,0 +1,55 @@
+{{- if .Values.networkPolicy.enabled }}
+# Nothing may call a pod unless a policy below says so.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+{{- /* Who may call whom. Every service may reach its callers' ports and no others. */}}
+{{- $callers := dict
+  "gateway" (list)
+  "auth" (list "gateway" "notification")
+  "wallet" (list "gateway" "transfer")
+  "transfer" (list "gateway")
+  "webhook" (list "gateway")
+  "notification" (list)
+}}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $name }}
+  labels: {{- include "payments.labels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "payments.selector" (dict "root" $ "name" $name "svc" $svc) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    {{- if $svc.public }}
+    # The public gateway: from anywhere.
+    - ports:
+        - {port: {{ $svc.ports.http }}}
+    {{- end }}
+    # Prometheus scrapes /metrics, on the http or the metrics port, from the
+    # monitoring namespace. The ports are always listed: an empty list would
+    # mean every port.
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+      ports:
+        - {port: {{ $svc.ports.http }}}
+        {{- if $svc.ports.metrics }}
+        - {port: {{ $svc.ports.metrics }}}
+        {{- end }}
+    {{- with (get $callers $name) }}
+    - from:
+        {{- range . }}
+        - podSelector:
+            matchLabels: {{- include "payments.selector" (dict "root" $ "name" . "svc" (dict)) | nindent 14 }}
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

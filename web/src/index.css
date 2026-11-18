@@ -1,0 +1,73 @@
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ledgerline: blue-grey bank-note paper, ink navy text, one cobalt accent.
+   The service colours are the only other hues: they mean "this span ran in
+   that service", in the trace tape and the waterfall. */
+@layer base {
+  :root {
+    --background: 220 22% 95%;
+    --foreground: 224 38% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 38% 12%;
+    --primary: 231 72% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 91%;
+    --secondary-foreground: 224 38% 18%;
+    --muted: 220 20% 91%;
+    --muted-foreground: 221 12% 38%;
+    --accent: 228 70% 95%;
+    --accent-foreground: 231 60% 32%;
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 78% 26%;
+    --warning: 33 88% 34%;
+    --border: 220 16% 85%;
+    --input: 220 14% 78%;
+    --ring: 231 72% 52%;
+    --radius: 0.5rem;
+
+    --svc-web: 215 14% 46%;
+    --svc-gateway: 231 72% 52%;
+    --svc-wallet: 160 78% 30%;
+    --svc-auth: 268 62% 52%;
+    --svc-transfer: 30 90% 44%;
+    --svc-notification: 330 66% 48%;
+    --svc-webhook: 190 86% 34%;
+  }
+
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+  :focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }
+  ::selection { background: hsl(var(--primary) / 0.18); }
+}
+
+@layer components {
+  /* The receipt tape: a paper strip with a torn bottom edge. */
+  .tape-paper {
+    background: hsl(0 0% 100%);
+    --t: 7px;
+    -webkit-mask:
+      linear-gradient(#000 0 0) top / 100% calc(100% - var(--t)) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--t) * 2) var(--t) repeat-x;
+    mask:
+      linear-gradient(#000 0 0) top / 100% calc(100% - var(--t)) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--t) * 2) var(--t) repeat-x;
+  }
+  .tape-rule { border-top: 1px dashed hsl(var(--input)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
